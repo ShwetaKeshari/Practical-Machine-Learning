@@ -1,0 +1,152 @@
+---
+title: "Practical Macine Learning"
+author: "Shweta"
+date: "March 1, 2016"
+output: html_document
+---
+
+
+##Prediction Assignment Writeupless 
+####Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+###Data
+
+The training data for this project are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+###Question of Interest:
+
+The goal of your project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. You may use any of the other variables to predict with. You should create a report describing how you built your model, how you used cross validation, what you think the expected out of sample error is, and why you made the choices you did. You will also use your prediction model to predict 20 different test cases.
+
+Our Predicted variable "classe" has five levels:
+
+.exactly according to the specification (Class A)
+
+.throwing the elbows to the front (Class B)
+
+.lifting the dumbbell only halfway (Class C)
+
+.lowering the dumbbell only halfway (Class D)
+
+.throwing the hips to the front (Class E)
+
+
+####Data Loading and Cleaning:
+
+Loading Training Data set
+
+```{r}
+a <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+Training_data <- read.csv(url(a), na.strings=c("NA","#DIV/0!",""))
+dim(Training_data)
+
+#Loading Test Data set
+
+b<- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+Test_data <- read.csv(url(b), na.strings=c("NA","#DIV/0!",""))
+```
+
+
+#####Data Cleaning and PreProcessing
+
+finding the missing variables and removing it
+
+```{r}
+Training_data<-Training_data[,colSums(is.na(Training_data)) == 0]
+Test_data <-Test_data[,colSums(is.na(Test_data)) == 0]
+
+dim(Training_data)
+
+#Some of the variables (1] "V1","user_name" , "raw_timestamp_part_1",     "raw_timestamp_part_2","cvtd_timestamp", "new_window" ,"num_window")are not required as predictor variables soo we will subset the data.
+Training_data   <-Training_data[,-c(1:7)]
+Test_data<- Test_data[,-c(1:7)]
+
+dim(Training_data)
+dim(Test_data)
+```
+ we find that the Training and test data set have 19622 observation and 53 variables and 20 observation and 5e variables respectively.
+ 
+ 
+
+
+####Crossvalidation using 60% data for Training and 40% data for Testing from the Training data
+
+####Partion  the training set 
+
+Partion Training data set into two data sets, 60% for Training_set, 40% for Test_set:
+
+```{r}
+library(caret)
+inTrain <- createDataPartition(y=Training_data$classe, p=0.6, list=FALSE)
+inTraining_set <- Training_data[inTrain, ]; 
+inTest_set <- Training_data[-inTrain, ]
+dim(inTraining_set); dim(inTest_set)
+```
+
+
+####Prediction model using decision trees
+```{r}
+set.seed(1000)
+
+library(rpart)
+library(rpart.plot)
+library(rattle)
+modelFit1 <- rpart(classe ~ ., data=inTraining_set, method="class")
+
+rpart.plot(modelFit1, main="Classification Tree", extra=102, under=TRUE, faclen=0)
+fancyRpartPlot(modelFit1, main="Classification Tree",compress=TRUE)
+##########3
+
+##Model prediction
+library(e1071)
+prediction1 <- predict(modelFit1,inTest_set, type = "class")
+##Using confusion Matrix to test results:
+
+confusionMatrix(prediction1,inTest_set$classe)
+```
+
+#####
+####Second model Prediction using Random Forest
+
+
+```{r}
+library(randomForest)
+modelFit2<- randomForest(classe ~. , data=inTraining_set, method="class")
+
+# Predicting:
+prediction2 <- predict(modelFit2, inTest_set, type = "class")
+
+# Test results on subTesting data set:
+confusionMatrix(prediction2, inTest_set$classe)
+```
+
+Looks like the RandomForest method has 99% accuracy copared to the decsicion Tree model with accuracy only 75%.
+
+This tells us that RandomForest does a better prediction.
+
+We will use this data to predict the test data provided with the Assignment.
+```{r}
+predictTestdata<- predict(modelFit2, Test_data, type="class")
+predictTestdata
+```
+
+Write files for submission
+```{r}
+
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+pml_write_files(predictTestdata)
+```
